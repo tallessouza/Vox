@@ -82,8 +82,25 @@ class AssemblyAIService:
         try:
             logger.info(f"Starting transcription with speaker labels for: {file_path}")
 
-            # Upload and transcribe with Portuguese config
-            transcript = self.transcriber.transcribe(file_path, config=self.config)
+            # Upload and transcribe with Portuguese config (with retry logic)
+            max_retries = 3
+            retry_count = 0
+            last_error = None
+
+            while retry_count < max_retries:
+                try:
+                    transcript = self.transcriber.transcribe(file_path, config=self.config)
+                    break  # Success, exit retry loop
+                except Exception as e:
+                    retry_count += 1
+                    last_error = e
+                    if retry_count < max_retries:
+                        logger.warning(f"Transcription attempt {retry_count} failed: {e}. Retrying...")
+                        import time
+                        time.sleep(2 ** retry_count)  # Exponential backoff: 2s, 4s, 8s
+                    else:
+                        logger.error(f"All {max_retries} transcription attempts failed")
+                        raise last_error
 
             # Check for transcription errors
             if transcript.status == aai.TranscriptStatus.error:

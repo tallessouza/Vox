@@ -6,3 +6,4 @@ audios/*
 .cursor/*
 .windsurf/*
 web-bundles/*
+.env

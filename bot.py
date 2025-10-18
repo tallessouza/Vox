@@ -2,7 +2,12 @@ import discord
 import os
 import asyncio
 import logging
+import pprint
+from dotenv import load_dotenv
 from services import AssemblyAIService, AssemblyAIError
+
+# Load environment variables from .env file
+load_dotenv()
 
 # Configure logging
 logging.basicConfig(
@@ -89,10 +94,16 @@ async def process_audio_task(message: discord.Message, attachment: discord.Attac
 
     except AssemblyAIError as e:
         logger.error(f"AssemblyAI error for {filename}: {e}")
-        await message.channel.send(f"⚠️ Erro na transcrição: {str(e)}")
+        try:
+            await message.channel.send(f"⚠️ Erro na transcrição: {str(e)}")
+        except Exception as send_error:
+            logger.error(f"Failed to send error message to Discord: {send_error}")
     except Exception as e:
         logger.error(f"Unexpected error processing {filename}: {e}", exc_info=True)
-        await message.channel.send(f"⚠️ Ocorreu um erro inesperado na transcrição: {str(e)}")
+        try:
+            await message.channel.send(f"⚠️ Ocorreu um erro inesperado na transcrição: {str(e)}")
+        except Exception as send_error:
+            logger.error(f"Failed to send error message to Discord: {send_error}")
     finally:
         # Clean up: delete local audio file
         try:
@@ -120,7 +131,30 @@ async def on_message(message):
         return
 
     # Teste simples - !ping command (existing functionality preserved)
+    logger.info(f"📨 Comando recebido: {message}")
+    
+    # Printar atributos específicos do objeto message
+    message_info = {
+        'id': message.id,
+        'content': message.content,
+        'author': str(message.author),
+        'channel': str(message.channel),
+        'guild': str(message.guild) if message.guild else None,
+        'created_at': message.created_at,
+        'edited_at': message.edited_at,
+        'type': message.type,
+        'flags': message.flags,
+        'attachments': [str(att) for att in message.attachments],
+        'embeds': [str(emb) for emb in message.embeds],
+        'reactions': [str(react) for react in message.reactions],
+        'mentions': [str(mention) for mention in message.mentions],
+        'role_mentions': [str(role) for role in message.role_mentions],
+        'channel_mentions': [str(channel) for channel in message.channel_mentions]
+    }
+    
+    logger.info(f"📨 Objeto message detalhado: {pprint.pformat(message_info, width=120)}")
     if message.content.lower() == "!ping":
+        logger.info(f"📨 Comando !ping recebido de {message.author} no canal #{message.channel}")
         await message.channel.send("🏓 Pong!")
         return
 
@@ -129,6 +163,7 @@ async def on_message(message):
         for attachment in message.attachments:
             # Verifica se é um tipo de áudio comum
             if attachment.filename.endswith(('.mp3', '.wav', '.m4a', '.ogg')):
+                logger.info(f"🎵 Arquivo de áudio recebido: {attachment.filename} de {message.author}")
                 # Cria a pasta audios/ se não existir
                 os.makedirs("audios", exist_ok=True)
 
